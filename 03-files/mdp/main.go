@@ -24,6 +24,9 @@ const (
 	</head>
 	<body>
 {{ .Body }}
+		<footer>
+{{ .Footer }}
+		</footer>
 	</body>
 </html>
 `
@@ -31,8 +34,9 @@ const (
 
 // content type represents the HTML content tto add into the template
 type content struct {
-	Title string
-	Body  template.HTML
+	Title  string
+	Body   template.HTML
+	Footer string
 }
 
 func main() {
@@ -40,26 +44,22 @@ func main() {
 	filename := flag.String("file", "", "Markdown file to preview")
 	skipPreview := flag.Bool("s", false, "Skip auto-preview")
 	tFname := flag.String("t", "", "Alternate template name")
+	prfBrowser := flag.String("b", "", "Preferred browser")
 	flag.Parse()
 	// no input file show usage
 	if *filename == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
-	if err := run(*filename, *tFname, os.Stdout, *skipPreview); err != nil {
+	if err := run(*filename, *tFname, *prfBrowser, os.Stdout, *skipPreview); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(filename, tFname string, out io.Writer, skipPreview bool) error {
+func run(filename, tFname string, prfBrowser string, out io.Writer, skipPreview bool) error {
 	// read data from file
 	input, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-
-	htmlData, err := parseContent(input, tFname)
 	if err != nil {
 		return err
 	}
@@ -76,6 +76,11 @@ func run(filename, tFname string, out io.Writer, skipPreview bool) error {
 	outName := temp.Name()
 	fmt.Fprintln(out, outName)
 
+	htmlData, err := parseContent(input, tFname, outName)
+	if err != nil {
+		return err
+	}
+
 	if err := saveHTML(outName, htmlData); err != nil {
 		return err
 	}
@@ -85,10 +90,10 @@ func run(filename, tFname string, out io.Writer, skipPreview bool) error {
 
 	defer os.Remove(outName)
 
-	return preview(outName)
+	return preview(outName, prfBrowser)
 }
 
-func parseContent(input []byte, tFname string) ([]byte, error) {
+func parseContent(input []byte, tFname string, outName string) ([]byte, error) {
 	// parse markdown file through blackfriday and bluemonday
 	// generate valid safe HTML
 	output := blackfriday.Run(input)
@@ -109,8 +114,9 @@ func parseContent(input []byte, tFname string) ([]byte, error) {
 
 	// Instantiate the content type, adding the title and body
 	c := content{
-		Title: "Markdown Preview Tool",
-		Body:  template.HTML(body),
+		Title:  "Markdown Preview Tool",
+		Body:   template.HTML(body),
+		Footer: outName,
 	}
 
 	// create a buffer of bytes
@@ -128,9 +134,14 @@ func saveHTML(outFname string, data []byte) error {
 	return ioutil.WriteFile(outFname, data, 0644)
 }
 
-func preview(fname string) error {
-	// Locate the firefox browser in the PATH
-	browserPath, err := exec.LookPath("firefox")
+func preview(fname string, prfBrowser string) error {
+	browser := "firefox"
+	if prfBrowser != "" {
+		browser = prfBrowser
+	}
+
+	// Locate the browser in the PATH
+	browserPath, err := exec.LookPath(browser)
 	if err != nil {
 		return err
 	}

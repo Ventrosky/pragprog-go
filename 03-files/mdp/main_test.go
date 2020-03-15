@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -19,7 +20,7 @@ func TestParseContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := parseContent(input, "")
+	result, err := parseContent(input, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +40,7 @@ func TestParseContent(t *testing.T) {
 func TestRun(t *testing.T) {
 	var mockStdOut bytes.Buffer
 
-	if err := run(inputFile, "", &mockStdOut, true); err != nil {
+	if err := run(inputFile, "", "", &mockStdOut, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,6 +52,11 @@ func TestRun(t *testing.T) {
 	}
 
 	expected, err := ioutil.ReadFile(goldenFile)
+
+	dynamicFooter := fmt.Sprintf(`<footer>
+%s`, resultFile)
+	expected = []byte(strings.Replace(string(expected), `<footer>
+`, dynamicFooter, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
